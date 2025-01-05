@@ -29,8 +29,9 @@ export default class WebServer implements IWebServer {
           config.defaultContexts?.forEach(context => {
                if (context.url.includes(":")) {
                     this.dynamicRoutes[context.url] = context
+               } else {
+                    this.staticRoutes[context.url] = context
                }
-               this.staticRoutes[context.url] = context
                this.contexts.push(context)
           })
           this.managers = [
