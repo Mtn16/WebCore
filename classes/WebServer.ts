@@ -29,8 +29,10 @@ export default class WebServer implements IWebServer {
           config.defaultContexts?.forEach(context => {
                if (context.url.includes(":")) {
                     this.dynamicRoutes[context.url] = context
+                    console.log("Dynamic")
                } else {
                     this.staticRoutes[context.url] = context
+                    console.log("Static")
                }
                this.contexts.push(context)
           })
@@ -44,9 +46,9 @@ export default class WebServer implements IWebServer {
      }
      createContext(context: WebContext) {
           if (context.url.includes(":")) {
-               this.dynamicRoutes[context.url] = context
+               this.dynamicRoutes[context.url.toLocaleLowerCase()] = context
           }
-          this.staticRoutes[context.url] = context
+          this.staticRoutes[context.url.toLocaleLowerCase()] = context
           this.contexts.push(context)
      }
 
@@ -57,8 +59,8 @@ export default class WebServer implements IWebServer {
                const [path, queryString] = url.split('?');
 
                try {
-                    if (this.staticRoutes[path]) {
-                         this.staticRoutes[path].handle(request, response);
+                    if (this.staticRoutes[path.toLocaleLowerCase()]) {
+                         this.staticRoutes[path.toLocaleLowerCase()].handle(request, response);
                          return;
                     }
                     const context = this.contexts.filter(ct => path.toLocaleLowerCase().match(this.pathToRegex(ct.url)))[0]
