@@ -5,4 +5,5 @@ export default interface IWebServer {
      port: number;
      contexts?: WebContext[];
      managers: Manager[];
+     bannedIPs: string[];
 }
