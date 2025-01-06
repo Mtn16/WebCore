@@ -1,5 +1,4 @@
 import { IncomingMessage, ServerResponse } from "http";
-import { ContentType } from "../enums/ContentType";
 import { HttpCode } from "../enums/HttpCode";
 import IWebServer from "../interfaces/IWebServer";
 import IWebServerConfig from "../interfaces/IWebServerConfig";
@@ -11,7 +10,6 @@ import WebContext from "./WebContext";
 import * as http from "http";
 import RequestManager from "./RequestManager";
 import VariableManager from "./VariableManager";
-import { HttpHeader } from "../enums/HttpHeader";
 
 export let WS: WebServer;
 
@@ -20,6 +18,8 @@ export default class WebServer implements IWebServer {
      contexts: WebContext[];
      managers: Manager[];
      bannedIPs: string[];
+     accessDeniedPage: WebContext | undefined;
+     notFoundPage: WebContext | undefined;
 
      private staticRoutes: { [key: string]: WebContext } = {};
      private dynamicRoutes: { [key: string]: WebContext } = {};
@@ -38,17 +38,25 @@ export default class WebServer implements IWebServer {
           })
 
           config.bannedIPs?.forEach(IP => {
-               if(IP === "localhost" || IP === "127.0.0.1" || IP === "::1") {
+               if (IP === "localhost" || IP === "127.0.0.1" || IP === "::1") {
                     this.bannedIPs.push("::1")
                     return
                }
-               if (/(?:^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$)|(?:^(?:(?:[a-fA-F\d]{1,4}:){7}(?:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,2}|:)|(?:[a-fA-F\d]{1,4}:){4}(?:(?::[a-fA-F\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,3}|:)|(?:[a-fA-F\d]{1,4}:){3}(?:(?::[a-fA-F\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,4}|:)|(?:[a-fA-F\d]{1,4}:){2}(?:(?::[a-fA-F\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,5}|:)|(?:[a-fA-F\d]{1,4}:){1}(?:(?::[a-fA-F\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,6}|:)|(?::(?:(?::[a-fA-F\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,7}|:)))(?:%[0-9a-zA-Z]{1,})?$)/gm.test(IP)) {  
+               if (/(?:^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$)|(?:^(?:(?:[a-fA-F\d]{1,4}:){7}(?:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,2}|:)|(?:[a-fA-F\d]{1,4}:){4}(?:(?::[a-fA-F\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,3}|:)|(?:[a-fA-F\d]{1,4}:){3}(?:(?::[a-fA-F\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,4}|:)|(?:[a-fA-F\d]{1,4}:){2}(?:(?::[a-fA-F\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,5}|:)|(?:[a-fA-F\d]{1,4}:){1}(?:(?::[a-fA-F\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,6}|:)|(?::(?:(?::[a-fA-F\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,7}|:)))(?:%[0-9a-zA-Z]{1,})?$)/gm.test(IP)) {
                     this.bannedIPs.push(IP)
                } else {
                     console.log(`[WARN] Invalid IP provided: ${IP}`)
                }
           })
-          
+
+          if (config.accessDeniedPage) {
+               this.accessDeniedPage = config.accessDeniedPage
+          }
+
+          if (config.notFoundPage) {
+               this.notFoundPage = config.notFoundPage
+          }
+
           this.managers = [
                new CookieManager(),
                new SessionManager(),
@@ -68,10 +76,13 @@ export default class WebServer implements IWebServer {
      startServer() {
           WS = this;
           const server = http.createServer((request: IncomingMessage, response: ServerResponse) => {
-               if(this.bannedIPs.filter(IP => IP === request.socket.remoteAddress).length > 0)
-               {
-                    response.writeHead(HttpCode.Forbidden)
-                    response.end("<h1>Access denied</h1><p>The owner of this website has banned your IP address.<p>")
+               if (this.bannedIPs.filter(IP => IP === request.socket.remoteAddress).length > 0) {
+                    if (this.accessDeniedPage) {
+                         this.accessDeniedPage.handle(request, response)
+                    } else {
+                         response.writeHead(HttpCode.Forbidden)
+                         response.end("<h1>Access denied</h1><p>The owner of this website has banned your IP address.<p>")
+                    }
                     return
                }
                const url = request.url || '/';
@@ -90,13 +101,23 @@ export default class WebServer implements IWebServer {
                          if (matchingContext) {
                               matchingContext.handle(request, response, params)
                          } else {
-                              response.writeHead(HttpCode.NotFound);
-                              response.end(`No context found for ${request.url}`)
+
+                              if (this.notFoundPage) {
+                                   this.notFoundPage.handle(request, response)
+                              } else {
+                                   response.writeHead(HttpCode.NotFound);
+                                   response.end(`No context found for ${request.url}`)
+                              }
+                              return
                          }
                          return;
                     }
-                    response.writeHead(HttpCode.NotFound, ContentType.PlainText);
-                    response.end(`No context found for ${request.url}`)
+                    if (this.notFoundPage) {
+                         this.notFoundPage.handle(request, response)
+                    } else {
+                         response.writeHead(HttpCode.NotFound);
+                         response.end(`No context found for ${request.url}`)
+                    }
                } catch (error) {
                     console.log(error)
                }
