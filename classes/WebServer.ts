@@ -11,6 +11,7 @@ import WebContext from "./WebContext";
 import * as http from "http";
 import RequestManager from "./RequestManager";
 import VariableManager from "./VariableManager";
+import { HttpHeader } from "../enums/HttpHeader";
 
 export let WS: WebServer;
 
@@ -18,6 +19,7 @@ export default class WebServer implements IWebServer {
      port: number;
      contexts: WebContext[];
      managers: Manager[];
+     bannedIPs: string[];
 
      private staticRoutes: { [key: string]: WebContext } = {};
      private dynamicRoutes: { [key: string]: WebContext } = {};
@@ -25,6 +27,7 @@ export default class WebServer implements IWebServer {
 
      constructor(config: IWebServerConfig) {
           this.port = config.port;
+          this.bannedIPs = [];
           this.contexts = config.defaultContexts ? config.defaultContexts : [];
           config.defaultContexts?.forEach(context => {
                if (context.url.includes(":")) {
@@ -32,8 +35,20 @@ export default class WebServer implements IWebServer {
                } else {
                     this.staticRoutes[context.url] = context
                }
-               this.contexts.push(context)
           })
+
+          config.bannedIPs?.forEach(IP => {
+               if(IP === "localhost" || IP === "127.0.0.1" || IP === "::1") {
+                    this.bannedIPs.push("::1")
+                    return
+               }
+               if (/(?:^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}$)|(?:^(?:(?:[a-fA-F\d]{1,4}:){7}(?:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){6}(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|:[a-fA-F\d]{1,4}|:)|(?:[a-fA-F\d]{1,4}:){5}(?::(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,2}|:)|(?:[a-fA-F\d]{1,4}:){4}(?:(?::[a-fA-F\d]{1,4}){0,1}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,3}|:)|(?:[a-fA-F\d]{1,4}:){3}(?:(?::[a-fA-F\d]{1,4}){0,2}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,4}|:)|(?:[a-fA-F\d]{1,4}:){2}(?:(?::[a-fA-F\d]{1,4}){0,3}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,5}|:)|(?:[a-fA-F\d]{1,4}:){1}(?:(?::[a-fA-F\d]{1,4}){0,4}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,6}|:)|(?::(?:(?::[a-fA-F\d]{1,4}){0,5}:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)(?:\\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]\d|\d)){3}|(?::[a-fA-F\d]{1,4}){1,7}|:)))(?:%[0-9a-zA-Z]{1,})?$)/gm.test(IP)) {  
+                    this.bannedIPs.push(IP)
+               } else {
+                    console.log(`[WARN] Invalid IP provided: ${IP}`)
+               }
+          })
+          
           this.managers = [
                new CookieManager(),
                new SessionManager(),
@@ -53,6 +68,12 @@ export default class WebServer implements IWebServer {
      startServer() {
           WS = this;
           const server = http.createServer((request: IncomingMessage, response: ServerResponse) => {
+               if(this.bannedIPs.filter(IP => IP === request.socket.remoteAddress).length > 0)
+               {
+                    response.writeHead(HttpCode.Forbidden)
+                    response.end("<h1>Access denied</h1><p>The owner of this website has banned your IP address.<p>")
+                    return
+               }
                const url = request.url || '/';
                const [path, queryString] = url.split('?');
 
