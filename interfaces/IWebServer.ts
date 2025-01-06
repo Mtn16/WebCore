@@ -6,4 +6,6 @@ export default interface IWebServer {
      contexts?: WebContext[];
      managers: Manager[];
      bannedIPs: string[];
+     accessDeniedPage: WebContext | undefined;
+     notFoundPage: WebContext | undefined;
 }
