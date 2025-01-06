@@ -4,4 +4,6 @@ export default interface IWebServerConfig{
      port: number;
      defaultContexts?: WebContext[];
      bannedIPs?: string[];
+     accessDeniedPage?: WebContext;
+     notFoundPage?: WebContext;
 }
